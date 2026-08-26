@@ -19,6 +19,7 @@ npm-debug.*
 *.p12
 *.key
 *.mobileprovision
+google-services.json
 
 # OS Files
 .DS_Store
