@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "a4995-app",
+    "slug": "a4995-app",
+    "version": "1.0.0",
+    "scheme": "sewerapp",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.a4995.app"
+    },
+    "android": {
+      "package": "com.a4995.app",
+      "googleServicesFile": "./google-services.json",
+      "usesCleartextTraffic": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "cfb6f963-bd93-45f5-97b9-8ed91c5c0d70"
+      }
+    },
+    "plugins": [
+      "@react-native-community/datetimepicker",
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0b57d0"
+        }
+      ],
+      "expo-web-browser",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.YOUR_IOS_CLIENT_ID_STRING_HERE"
+        }
+      ]
+    ]
+  }
+}
