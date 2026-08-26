@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { styles as globalStyles } from '../styles/globalStyles';
 import { AuthContext } from '../context/authContext';
+import { API_BASE_URL } from '../config/constants';
 
 const NotificationsScreen = ({ route, navigation }) => {
   const { userToken } = useContext(AuthContext);
@@ -34,7 +35,7 @@ const NotificationsScreen = ({ route, navigation }) => {
     }
 
     try {
-      const response = await fetch('http://192.168.2.104:8000/api/notifications', {
+      const response = await fetch(`${API_BASE_URL}/api/notifications`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${userToken}`,
