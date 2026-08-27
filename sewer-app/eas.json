@@ -14,7 +14,11 @@
     },
     "production": {
       "autoIncrement": true,
-      "environment": "production"    }
+      "environment": "production",
+      "pre-install": [
+        "if [ -n \"$FIREBASE_API_KEY\" ]; then sed -i 's/__FIREBASE_API_KEY__/'\"$FIREBASE_API_KEY\"'/g' google-services.json; fi"
+      ]    
+    }
   },
   "submit": {
     "production": {}
