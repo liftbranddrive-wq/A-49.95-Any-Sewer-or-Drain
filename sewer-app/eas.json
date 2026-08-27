@@ -14,9 +14,7 @@
     },
     "production": {
       "autoIncrement": true,
-      "environment": "production",
-      "preInstall": "if [ -n \"$GOOGLE_SERVICES_JSON\" ]; then echo \"$GOOGLE_SERVICES_JSON\" > google-services.json; fi"
-    }
+      "environment": "production"    }
   },
   "submit": {
     "production": {}
