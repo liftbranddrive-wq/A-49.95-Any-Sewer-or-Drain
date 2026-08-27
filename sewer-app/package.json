@@ -7,7 +7,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "eas-build-pre-install": "if [ -n \"$FIREBASE_API_KEY\" ]; then sed -i 's/__FIREBASE_API_KEY__/'\"$FIREBASE_API_KEY\"'/g' google-services.json; fi"
+    "eas-build-pre-install": "if [ -n \"$FIREBASE_API_KEY\" ]; then sed -i 's/__FIREBASE_API_KEY__/'\"$FIREBASE_API_KEY\"'/g' google-services.json; fi",
+    "eas-build-post-install": "sed -i 's|def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()|def projectRoot = \"/home/expo/workingdir/build/sewer-app\"|g' android/app/build.gradle"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
