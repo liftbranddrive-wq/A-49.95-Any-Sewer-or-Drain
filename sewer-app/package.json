@@ -1,5 +1,5 @@
 {
-  "name": "a4995-app",
+  "name": "A4995",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "eas-build-pre-install": "if [ -n \"$FIREBASE_API_KEY\" ]; then sed -i 's/__FIREBASE_API_KEY__/'\"$FIREBASE_API_KEY\"'/g' google-services.json; fi",
-    "eas-build-post-install": "node -e \"const fs = require('fs'); let file = 'android/app/build.gradle'; if (fs.existsSync(file)) { let content = fs.readFileSync(file, 'utf8'); content = content.replace('rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()', '(rootDir.getAbsoluteFile().getParentFile() != null ? rootDir.getAbsoluteFile().getParentFile().getAbsolutePath() : rootDir.getAbsoluteFile().getAbsolutePath())'); fs.writeFileSync(file, content); console.log('Successfully patched build.gradle path resolution'); }\""
+    "eas-build-post-install": "node -e \"const fs = require('fs'); let file = 'android/app/build.gradle'; if (fs.existsSync(file)) { let content = fs.readFileSync(file, 'utf8'); content = content.replace(/def projectRoot = [^\\n]*/g, 'def projectRoot = \"/home/expo/workingdir/build/sewer-app\"'); fs.writeFileSync(file, content); console.log('Forced absolute projectRoot in build.gradle'); }\""
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
