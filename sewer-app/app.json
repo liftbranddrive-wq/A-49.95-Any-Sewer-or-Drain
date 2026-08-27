@@ -3,9 +3,14 @@
     "name": "A4995",
     "slug": "a4995-app",
     "version": "1.0.0",
+    "icon": "./assets/a4995-logo.png",
     "android": {
       "package": "com.a4995.app",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/a4995-logo.png",
+        "backgroundColor": "#ffffff"
+      }
     },
     "plugins": [
       [
