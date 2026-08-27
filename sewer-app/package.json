@@ -8,9 +8,9 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "eas-build-pre-install": "if [ -n \"$FIREBASE_API_KEY\" ]; then sed -i 's/__FIREBASE_API_KEY__/'\"$FIREBASE_API_KEY\"'/g' google-services.json; fi",
-    "eas-build-post-install": "sed -i 's|def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()|def projectRoot = \"/home/expo/workingdir/build/sewer-app\"|g' android/app/build.gradle"
+    "eas-build-post-install": "node -e \"const fs = require('fs'); let file = 'android/app/build.gradle'; if (fs.existsSync(file)) { let content = fs.readFileSync(file, 'utf8'); content = content.replace(/def projectRoot = .*/g, 'def projectRoot = \"/home/expo/workingdir/build/sewer-app\"'); fs.writeFileSync(file, content); console.log('Successfully patched projectRoot in build.gradle'); }\""
   },
-  "dependencies": {
+    "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
