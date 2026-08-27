@@ -1,57 +1,27 @@
 {
   "expo": {
-    "name": "a4995-app",
+    "name": "Sewer and Drain App",
     "slug": "a4995-app",
     "version": "1.0.0",
-    "scheme": "sewerapp",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.a4995.app"
-    },
     "android": {
       "package": "com.a4995.app",
-      "googleServicesFile": "./google-services.json",
-      "usesCleartextTraffic": true,
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "cfb6f963-bd93-45f5-97b9-8ed91c5c0d70"
-      }
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
-      "@react-native-community/datetimepicker",
-      "expo-font",
       [
-        "expo-notifications",
+        "expo-build-properties",
         {
-          "icon": "./assets/icon.png",
-          "color": "#0b57d0"
-        }
-      ],
-      "expo-web-browser",
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "iosUrlScheme": "com.googleusercontent.apps.YOUR_IOS_CLIENT_ID_STRING_HERE"
+          "android": {
+            "usesCleartextTraffic": true
+          }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9b5ee68b-19e1-417b-80eb-f13bb6615617"
+      }
+    },
+    "owner": "liftbrandai"
   }
 }
