@@ -7,8 +7,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "eas-build-pre-install": "if [ -n \"$FIREBASE_API_KEY\" ]; then sed -i 's/__FIREBASE_API_KEY__/'\"$FIREBASE_API_KEY\"'/g' google-services.json; fi",
-    "eas-build-post-install": "node -e \"const fs = require('fs'); let file = 'android/app/build.gradle'; if (fs.existsSync(file)) { let lines = fs.readFileSync(file, 'utf8').split('\\n'); lines = lines.map(line => line.includes('projectRoot') && line.includes('def') ? 'def projectRoot = \\\"/home/expo/workingdir/build/sewer-app\\\"' : line); fs.writeFileSync(file, lines.join('\\n')); console.log('Successfully enforced absolute projectRoot line'); }\""
+    "eas-build-pre-install": "if [ -n \"$FIREBASE_API_KEY\" ]; then sed -i 's/__FIREBASE_API_KEY__/'\"$FIREBASE_API_KEY\"'/g' google-services.json; fi"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
