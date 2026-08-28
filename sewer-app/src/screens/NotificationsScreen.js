@@ -7,6 +7,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  Dimensions,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -14,8 +16,11 @@ import { styles as globalStyles } from '../styles/globalStyles';
 import { AuthContext } from '../context/authContext';
 import { API_BASE_URL } from '../config/constants';
 
+const { width } = Dimensions.get('window');
+const isTablet = width >= 768;
+
 const NotificationsScreen = ({ route, navigation }) => {
-  const { userToken } = useContext(AuthContext);
+  const { userToken, userRole, user } = useContext(AuthContext);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -47,7 +52,7 @@ const NotificationsScreen = ({ route, navigation }) => {
         const data = await response.json();
         const formatted = data.map((item) => ({
           ...item,
-          read: item.read || false,
+          read: item.read || item.is_read || false,
         }));
         setNotifications(formatted);
       } else {
@@ -66,18 +71,41 @@ const NotificationsScreen = ({ route, navigation }) => {
     fetchNotifications();
   };
 
-  const handleNotificationPress = (item) => {
-    // Mark as read locally
+  const handleNotificationPress = async (item) => {
+    // 1. Mark as read locally immediately for smooth UI feedback
     setNotifications((prev) =>
       prev.map((n) => (n.id === item.id ? { ...n, read: true } : n))
     );
 
-    // If the notification has an associated service_id, navigate to Services with it
+    // 2. Persist the "read" status to your backend database if it wasn't already read
+    if (userToken && !item.read) {
+      try {
+        await fetch(`${API_BASE_URL}/api/notifications/${item.id}/read`, {
+          method: 'PATCH', // Change to 'PUT' if your FastAPI endpoint uses PUT
+          headers: {
+            'Authorization': `Bearer ${userToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (err) {
+        console.error('Failed to sync read status with backend:', err);
+      }
+    }
+
+    const rawRole = userRole || user?.role || '';
+    const isAdmin = String(rawRole).trim().toLowerCase() === 'admin';
+
+    // 3. Responsive navigation depending on item parameters or user role
     if (item.service_id) {
-      navigation.navigate('Services', { service_id: item.service_id });
+      try {
+        navigation.navigate(isAdmin ? 'Admin Services' : 'Services', { service_id: item.service_id });
+      } catch (err) {
+        navigation.navigate(isAdmin ? 'Admin' : 'Home');
+      }
     } else if (item.type === 'booking_created' || item.type === 'new_service_added') {
-      // Fallback redirection to Services if type matches
-      navigation.navigate('Services');
+      navigation.navigate(isAdmin ? 'Admin Services' : 'Services');
+    } else if (item.type === 'admin_action' && isAdmin) {
+      navigation.navigate('Admin');
     }
   };
 
@@ -90,18 +118,18 @@ const NotificationsScreen = ({ route, navigation }) => {
       <View style={localStyles.iconContainer}>
         <Ionicons
           name={item.read ? 'checkmark-circle-outline' : 'notifications'}
-          size={24}
+          size={isTablet ? 28 : 24}
           color={item.read ? '#9CA3AF' : '#F59E0B'}
         />
       </View>
       <View style={localStyles.textContainer}>
         <View style={localStyles.titleRow}>
-          <Text style={[localStyles.title, item.read && localStyles.readText]}>
+          <Text style={[localStyles.title, item.read && localStyles.readText]} numberOfLines={1}>
             {item.title}
           </Text>
           <Text style={localStyles.time}>{item.time}</Text>
         </View>
-        <Text style={[localStyles.message, item.read && localStyles.readText]}>
+        <Text style={[localStyles.message, item.read && localStyles.readText]} numberOfLines={3}>
           {item.message}
         </Text>
       </View>
@@ -120,7 +148,7 @@ const NotificationsScreen = ({ route, navigation }) => {
         </View>
       ) : notifications.length === 0 ? (
         <View style={localStyles.center}>
-          <Ionicons name="notifications-off-outline" size={48} color="#9CA3AF" />
+          <Ionicons name="notifications-off-outline" size={isTablet ? 64 : 48} color="#9CA3AF" />
           <Text style={localStyles.emptyText}>No notifications yet.</Text>
         </View>
       ) : (
@@ -129,6 +157,7 @@ const NotificationsScreen = ({ route, navigation }) => {
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderItem}
           contentContainerStyle={localStyles.listContainer}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3B82F6" />
           }
@@ -141,7 +170,7 @@ const NotificationsScreen = ({ route, navigation }) => {
 const localStyles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: isTablet ? '10%' : 16,
     paddingTop: 10,
   },
   header: {
@@ -151,17 +180,18 @@ const localStyles = StyleSheet.create({
     borderBottomColor: 'rgba(255, 255, 255, 0.2)',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: isTablet ? 24 : 20,
     fontWeight: '800',
     color: '#1F2937',
   },
   listContainer: {
     paddingBottom: 24,
+    paddingTop: 4,
   },
   notificationCard: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
-    padding: 16,
+    padding: isTablet ? 20 : 16,
     borderRadius: 12,
     marginBottom: 12,
     shadowColor: '#000',
@@ -180,7 +210,7 @@ const localStyles = StyleSheet.create({
   iconContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: isTablet ? 16 : 12,
   },
   textContainer: {
     flex: 1,
@@ -192,21 +222,23 @@ const localStyles = StyleSheet.create({
     marginBottom: 4,
   },
   title: {
-    fontSize: 15,
+    fontSize: isTablet ? 17 : 15,
     fontWeight: '700',
     color: '#111827',
+    flex: 1,
+    marginRight: 8,
   },
   readText: {
     color: '#4B5563',
     fontWeight: '500',
   },
   message: {
-    fontSize: 13,
+    fontSize: isTablet ? 15 : 13,
     color: '#374151',
-    lineHeight: 18,
+    lineHeight: isTablet ? 22 : 18,
   },
   time: {
-    fontSize: 11,
+    fontSize: isTablet ? 13 : 11,
     color: '#6B7280',
   },
   center: {
@@ -216,7 +248,7 @@ const localStyles = StyleSheet.create({
   },
   emptyText: {
     marginTop: 12,
-    fontSize: 15,
+    fontSize: isTablet ? 17 : 15,
     color: '#6B7280',
     fontWeight: '600',
   },
