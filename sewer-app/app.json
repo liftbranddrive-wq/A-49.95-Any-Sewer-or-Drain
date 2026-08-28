@@ -5,12 +5,12 @@
     "version": "1.0.0",
     "sdkVersion": "57.0.0",
     "entryPoint": "./index.js",
-    "icon": "./assets/a4995-logo.png",
+    "icon": "./assets/app-icon.png",
     "android": {
       "package": "com.a4995.app",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/a4995-logo.png",
+        "foregroundImage": "./assets/app-icon.png",
         "backgroundColor": "#ffffff"
       }
     },

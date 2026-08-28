@@ -27,6 +27,7 @@ const HomeScreen = ({ onNavigate }) => {
   const [regionTag, setRegionTag] = useState('NYC');
   
   const [isModalVisible, setIsModalVisible] = useState(true); // Location selector modal
+  const [isAboutModalVisible, setIsAboutModalVisible] = useState(false); // About popup modal
   const [isNotificationOpen, setIsNotificationOpen] = useState(false); // Bell Dropdown state
 
   // Notification list state inside dropdown
@@ -53,7 +54,9 @@ const HomeScreen = ({ onNavigate }) => {
   };
 
   const handleTileClick = (targetScreen) => {
-    if (typeof onNavigate === 'function') {
+    if (targetScreen === 'about') {
+      setIsAboutModalVisible(true);
+    } else if (typeof onNavigate === 'function') {
       onNavigate(targetScreen);
     }
   };
@@ -100,6 +103,107 @@ const HomeScreen = ({ onNavigate }) => {
                   </Text>
                 </TouchableOpacity>
               ))}
+            </View>
+          </View>
+        </Modal>
+
+        {/* About Details Popup Modal */}
+        <Modal
+          visible={isAboutModalVisible}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setIsAboutModalVisible(false)}
+        >
+          <View style={localStyles.aboutModalOverlay}>
+            <View style={localStyles.aboutModalContent}>
+              <View style={localStyles.aboutModalHeader}>
+                <View>
+                  <Text style={localStyles.aboutScreenTitle}>About Us</Text>
+                  <Text style={localStyles.aboutScreenSub}>15+ years serving New York.</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setIsAboutModalVisible(false)}
+                  style={localStyles.aboutCloseBtn}
+                >
+                  <Ionicons name="close" size={22} color="#1F2937" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={localStyles.aboutScrollBody}>
+                <View style={localStyles.aboutHero}>
+                  <Text style={localStyles.aboutText}>
+                    A $49.95 Any Sewer or Drain is the leading provider of sewer & drain cleaning in Brooklyn, Queens, Nassau, and Suffolk counties. Our courteous call-center is staffed by friendly professionals, and a fleet of trucks is ready to roll whenever you need us. We started the low-price trend — don't be fooled by imitators.
+                  </Text>
+                </View>
+
+                <View style={localStyles.infoList}>
+                  <View style={localStyles.infoItem}>
+                    <Text style={localStyles.infoItemIcon}>📍</Text>
+                    <View style={localStyles.infoItemTextWrap}>
+                      <Text style={localStyles.infoItemLabel}>Address</Text>
+                      <Text style={localStyles.infoItemValue}>116-03 Merrick Blvd{'\n'}Jamaica, NY 11434</Text>
+                    </View>
+                  </View>
+
+                  <View style={localStyles.infoItem}>
+                    <Text style={localStyles.infoItemIcon}>⏰</Text>
+                    <View style={localStyles.infoItemTextWrap}>
+                      <Text style={localStyles.infoItemLabel}>Hours</Text>
+                      <Text style={localStyles.infoItemValue}>24 Hours / 7 Days — No surcharges nights, weekends, holidays</Text>
+                    </View>
+                  </View>
+
+                  <View style={localStyles.infoItem}>
+                    <Text style={localStyles.infoItemIcon}>🗺</Text>
+                    <View style={localStyles.infoItemTextWrap}>
+                      <Text style={localStyles.infoItemLabel}>Service Area</Text>
+                      <Text style={localStyles.infoItemValue}>NYC, Brooklyn, Queens, Nassau, Suffolk, Long Island</Text>
+                    </View>
+                  </View>
+
+                  <View style={localStyles.infoItem}>
+                    <Text style={localStyles.infoItemIcon}>✓</Text>
+                    <View style={localStyles.infoItemTextWrap}>
+                      <Text style={localStyles.infoItemLabel}>Credentials</Text>
+                      <Text style={localStyles.infoItemValue}>Licensed & Insured · 15+ Years · 199+ Reviews</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={localStyles.aboutActions}>
+                  <TouchableOpacity
+                    style={localStyles.btnSecondary}
+                    onPress={() => Linking.openURL('https://maps.google.com/?q=116-03+Merrick+Blvd+Jamaica+NY+11434')}
+                  >
+                    <Text style={localStyles.btnSecondaryText}>Open in Maps</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={localStyles.btnSecondary}
+                    onPress={() => Linking.openURL('https://a4995.com')}
+                  >
+                    <Text style={localStyles.btnSecondaryText}>Visit Website</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={localStyles.faqWrap}>
+                  <Text style={localStyles.faqH}>FAQs</Text>
+
+                  <View style={localStyles.faqBox}>
+                    <Text style={localStyles.faqQ}>How do I know if my sewer is clogged?</Text>
+                    <Text style={localStyles.faqA}>Slow drainage, gurgling sounds, foul odors, or water backing up in toilets/sinks.</Text>
+                  </View>
+
+                  <View style={localStyles.faqBox}>
+                    <Text style={localStyles.faqQ}>Is the $49.95 price for any drain?</Text>
+                    <Text style={localStyles.faqA}>Yes — that's our flat advertised cleaning price. The original low-price promise.</Text>
+                  </View>
+
+                  <View style={localStyles.faqBox}>
+                    <Text style={localStyles.faqQ}>Do you offer emergency service?</Text>
+                    <Text style={localStyles.faqA}>Absolutely — 24/7, no surcharges for nights, weekends, or holidays.</Text>
+                  </View>
+                </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -158,7 +262,7 @@ const HomeScreen = ({ onNavigate }) => {
                       </TouchableOpacity>
                     </View>
 
-                    {/* Content List using standard View mapping instead of FlatList */}
+                    {/* Content List */}
                     {loading ? (
                       <View style={localStyles.center}>
                         <ActivityIndicator size="small" color="#3B82F6" />
@@ -257,44 +361,8 @@ const HomeScreen = ({ onNavigate }) => {
           </View>
         </View>
 
-        {/* Quick Action Tiles with 3D Rounded Square Icons */}
-        <View style={styles.tileRow}>
-          <TouchableOpacity style={styles.tile} onPress={() => handleTileClick('call')} activeOpacity={0.8}>
-            <View style={localStyles.tileIcon3dContainer}>
-              <View style={[localStyles.tileIcon3dBase, { backgroundColor: '#D97706' }]} />
-              <View style={[localStyles.tileIcon3dTop, { backgroundColor: '#F59E0B' }]}>
-                <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
-                    stroke="#FFFFFF"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </Svg>
-              </View>
-            </View>
-            <Text style={styles.tileLabel}>All Numbers</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.tile} onPress={() => handleTileClick('services')} activeOpacity={0.8}>
-            <View style={localStyles.tileIcon3dContainer}>
-              <View style={[localStyles.tileIcon3dBase, { backgroundColor: '#2563EB' }]} />
-              <View style={[localStyles.tileIcon3dTop, { backgroundColor: '#3B82F6' }]}>
-                <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
-                    stroke="#FFFFFF"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </Svg>
-              </View>
-            </View>
-            <Text style={styles.tileLabel}>Services</Text>
-          </TouchableOpacity>
-
+        {/* Single Centered Quick Action Tile (About) */}
+        <View style={localStyles.centeredTileRow}>
           <TouchableOpacity style={styles.tile} onPress={() => handleTileClick('about')} activeOpacity={0.8}>
             <View style={localStyles.tileIcon3dContainer}>
               <View style={[localStyles.tileIcon3dBase, { backgroundColor: '#059669' }]} />
@@ -579,6 +647,12 @@ const localStyles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
+  centeredTileRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 10,
+  },
   tileIcon3dContainer: {
     width: 52,
     height: 52,
@@ -613,6 +687,138 @@ const localStyles = StyleSheet.create({
   testimonialBorder: {
     borderLeftWidth: 4,
     borderLeftColor: '#F59E0B',
+  },
+  // About Modal Styles translated from HTML/CSS
+  aboutModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  aboutModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    padding: 20,
+  },
+  aboutModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    paddingBottom: 14,
+    marginBottom: 14,
+  },
+  aboutScreenTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  aboutScreenSub: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  aboutCloseBtn: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+  },
+  aboutScrollBody: {
+    paddingBottom: 24,
+  },
+  aboutHero: {
+    marginBottom: 16,
+  },
+  aboutText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#374151',
+  },
+  infoList: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  infoItemIcon: {
+    fontSize: 18,
+    marginRight: 12,
+    marginTop: 2,
+  },
+  infoItemTextWrap: {
+    flex: 1,
+  },
+  infoItemLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+  },
+  infoItemValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  aboutActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 20,
+  },
+  btnSecondary: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  btnSecondaryText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  faqWrap: {
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 16,
+  },
+  faqH: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  faqBox: {
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  faqQ: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  faqA: {
+    fontSize: 13,
+    color: '#4B5563',
+    lineHeight: 18,
   },
 });
 
