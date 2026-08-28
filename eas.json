@@ -3,21 +3,19 @@
     "version": ">= 22.2.0",
     "appVersionSource": "remote"
   },
+  "projectRoot": "./sewer-app",
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "projectRoot": "./sewer-app"
+      "distribution": "internal"
     },
     "preview": {
       "distribution": "internal",
-      "environment": "preview",
-      "projectRoot": "./sewer-app"
+      "environment": "preview"
     },
     "production": {
       "autoIncrement": true,
-      "environment": "production",
-      "projectRoot": "./sewer-app"
+      "environment": "production"
     }
   },
   "submit": {
