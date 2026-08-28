@@ -176,29 +176,37 @@ export default function AdminServicesScreen() {
     }
   };
 
-  const handleDeleteService = (serviceId) => {
-    Alert.alert('Delete Service', 'Are you sure you want to delete this service?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const response = await fetch(`${API_BASE_URL}/api/services/admin/${serviceId}`, {
-              method: 'DELETE',
-              headers: { Authorization: `Bearer ${userToken}` },
-            });
-            if (response.ok) {
-              fetchServices();
-            } else {
-              Alert.alert('Error', 'Could not delete service.');
+  const handleDeleteService = (serviceId, serviceTitle) => {
+    Alert.alert(
+      'Delete Service',
+      `Are you sure you want to delete "${serviceTitle}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(`${API_BASE_URL}/api/services/admin/${serviceId}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${userToken}` },
+              });
+
+              const data = await response.json().catch(() => ({}));
+              if (!response.ok) {
+                throw new Error(data.detail || 'Could not delete service.');
+              }
+
+              // Instantly remove service from local list view
+              setServices((prevServices) => prevServices.filter((s) => s.id !== serviceId));
+              Alert.alert('Success', 'Service deleted successfully.');
+            } catch (err) {
+              Alert.alert('Error', err.message);
             }
-          } catch (err) {
-            Alert.alert('Error', err.message);
-          }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   if (loading) {
@@ -267,7 +275,10 @@ export default function AdminServicesScreen() {
                   <TouchableOpacity onPress={() => openModal(item)} style={styles.actionBtn}>
                     <MaterialCommunityIcons name="pencil-outline" size={20} color="#0288d1" />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDeleteService(item.id)} style={styles.actionBtn}>
+                  <TouchableOpacity 
+                    onPress={() => handleDeleteService(item.id, item.title)} 
+                    style={styles.actionBtn}
+                  >
                     <MaterialCommunityIcons name="trash-can-outline" size={20} color="#d32f2f" />
                   </TouchableOpacity>
                 </View>

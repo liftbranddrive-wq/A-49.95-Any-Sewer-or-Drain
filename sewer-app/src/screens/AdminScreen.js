@@ -66,6 +66,41 @@ export default function AdminUsersScreen() {
     );
   };
 
+  // Handle user deletion request
+  const handleDeleteUser = (userId, userName) => {
+    Alert.alert(
+      'Delete User',
+      `Are you sure you want to delete ${userName}? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
+                method: 'DELETE',
+                headers: {
+                  Authorization: `Bearer ${userToken}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+
+              const data = await response.json().catch(() => ({}));
+              if (!response.ok) throw new Error(data.detail || 'Failed to delete user');
+
+              // Remove user from local state to update UI immediately
+              setUsers((prevUsers) => prevUsers.filter((u) => u.id !== userId));
+              Alert.alert('Success', 'User deleted successfully.');
+            } catch (error) {
+              Alert.alert('Error', error.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -100,6 +135,14 @@ export default function AdminUsersScreen() {
         >
           <Ionicons name="create-outline" size={18} color="#fff" />
           <Text style={cardStyles.btnText}>Edit</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={cardStyles.deleteBtn}
+          onPress={() => handleDeleteUser(item.id, `${item.first_name} ${item.last_name}`)}
+        >
+          <Ionicons name="trash-outline" size={18} color="#fff" />
+          <Text style={cardStyles.btnText}>Delete</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -190,6 +233,14 @@ const cardStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#0288d1',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#d32f2f',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
