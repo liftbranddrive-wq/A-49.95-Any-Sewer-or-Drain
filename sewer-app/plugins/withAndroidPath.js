@@ -1,14 +1,14 @@
 const { withAppBuildGradle } = require('@expo/config-plugins');
 
 function withAndroidPathFix(config) {
-  return withAppBuildGradle(config, async (config) => {
-    let content = config.modResults.contents;
-    // Safely replace the broken path evaluation with an absolute string path
-    content = content.replace(
-      /def projectRoot = [^\n]*/g,
-      'def projectRoot = "/home/expo/workingdir/build/sewer-app"'
-    );
-    config.modResults.contents = content;
+  return withAppBuildGradle(config, (config) => {
+    if (config.modResults.contents) {
+      // Replace the parent-file lookup chain with a direct string path
+      config.modResults.contents = config.modResults.contents.replace(
+        /def projectRoot = [^\n]*/g,
+        'def projectRoot = "/home/expo/workingdir/build/sewer-app"'
+      );
+    }
     return config;
   });
 }
