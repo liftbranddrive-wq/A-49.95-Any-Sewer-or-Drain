@@ -7,7 +7,7 @@
     "entryPoint": "./index.js",
     "icon": "./assets/app-icon.png",
     "android": {
-      "package": "com.a4995.app",
+      "package": "com.a4995.appv2",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/app-icon.png",
