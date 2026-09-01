@@ -17,7 +17,7 @@
     "@react-navigation/bottom-tabs": "^7.18.15",
     "@react-navigation/native": "^7.3.15",
     "buffer": "^6.0.3",
-    "expo": "^57.0.17",
+    "expo": "~57.0.18",
     "expo-auth-session": "^57.0.10",
     "expo-build-properties": "~57.0.15",
     "expo-constants": "^57.0.15",

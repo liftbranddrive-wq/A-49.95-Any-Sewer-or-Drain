@@ -4,7 +4,6 @@
     "slug": "a4995-app",
     "version": "1.0.0",
     "sdkVersion": "57.0.0",
-    "entryPoint": "./index.js",
     "icon": "./assets/app-icon.png",
     "android": {
       "package": "com.a4995.appv2",
