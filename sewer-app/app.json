@@ -13,6 +13,11 @@
         "backgroundColor": "#ffffff"
       }
     },
+    "ios": {
+      "bundleIdentifier": "com.a4995.appv2",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "supportsTablet": true
+    },
     "plugins": [
       [
         "expo-build-properties",
@@ -29,9 +34,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "dcacb1d4-b204-499d-a488-e226d7f09aba"
+        "projectId": "cfb6f963-bd93-45f5-97b9-8ed91c5c0d70"
       }
     },
-    "owner": "ishatanveer31"
+    "owner": ""
   }
 }
