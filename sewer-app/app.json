@@ -16,7 +16,10 @@
     "ios": {
       "bundleIdentifier": "com.a4995.appv2",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "plugins": [
       [
