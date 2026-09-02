@@ -16,6 +16,13 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "companyName": "BrandnR L.L.C.",
+        "ascApiKeyPath": "./AuthKey_X76S6U8XAT.p8",
+        "ascApiKeyId": "X76S6U8XAT",
+        "ascApiKeyIssuerId": "1fe48fe9-ab54-4c7f-b187-5807ad5ca3a1"
+      }
+    }
   }
 }
