@@ -76,6 +76,7 @@ class UserAdminUpdate(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     role: Optional[str] = None
+    badge: Optional[str] = None
 
 
 class UserAdminCreate(BaseModel):
@@ -86,6 +87,7 @@ class UserAdminCreate(BaseModel):
     address: str
     password: str
     role: str = "user"
+    badge: Optional[str] = "Standard"
 
 
 class UserResponse(BaseModel):
@@ -96,6 +98,7 @@ class UserResponse(BaseModel):
     phone: str
     address: str
     role: str
+    badge: Optional[str] = "Standard"
 
     class Config:
         from_attributes = True
@@ -160,7 +163,8 @@ def create_user_by_admin(
         phone=user_data.phone,
         address=user_data.address,
         hashed_password=get_password_hash(user_data.password),
-        role=user_data.role
+        role=user_data.role,
+        badge=user_data.badge or "Standard"
     )
     db.add(db_user)
     db.commit()
@@ -191,13 +195,14 @@ def update_user_by_admin(
     return user
 
 
-# 5. DELETE USER
+# 5. DELETE USER (CONNECTED WITH DATABASE)
 @router.delete("/users/{user_id}", status_code=status.HTTP_200_OK)
 def delete_user_by_admin(
     user_id: int,
     db: Session = Depends(get_db),
     admin: auth_models.User = Depends(get_current_admin)
 ):
+    # Prevent admin from deleting their own account via the panel
     if user_id == admin.id:
         raise HTTPException(status_code=400, detail="Admin cannot delete their own account")
 
@@ -205,9 +210,11 @@ def delete_user_by_admin(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Perform database deletion
     db.delete(user)
     db.commit()
-    return {"message": f"User with ID {user_id} deleted successfully"}
+    
+    return {"message": f"User with ID {user_id} deleted successfully from database"}
 
 
 # 6. READ ALL SYSTEM BOOKINGS

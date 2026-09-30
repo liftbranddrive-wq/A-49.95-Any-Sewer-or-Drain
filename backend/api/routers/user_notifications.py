@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import List
 from database import get_db
-from models.notification_model import Notification
+from models.notifications import Notification
 from models.auth_models import User
 from api.routers.auth import get_current_user # adjust import to your auth dependency
 

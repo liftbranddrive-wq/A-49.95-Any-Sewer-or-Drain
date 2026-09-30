@@ -1,6 +1,7 @@
 import os
 import random
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, field_validator, ValidationInfo
@@ -26,6 +27,7 @@ router = APIRouter()
 SECRET_KEY = os.getenv("JWT_SECRET", "super_secret_jwt_key_liftbrand_2026")
 ALGORITHM = "HS256"
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "592240709905-imqn3h0j4dbreeh76ro0bfb9adnsvfgm.apps.googleusercontent.com")
+APPLE_CLIENT_ID = os.getenv("APPLE_CLIENT_ID", "com.yourcompany.yourapp") # Add your Apple Bundle ID / Service ID here
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
@@ -53,6 +55,11 @@ class UserLogin(BaseModel):
 
 class GoogleAuthRequest(BaseModel):
     token: str
+
+class AppleAuthRequest(BaseModel):
+    token: str
+    first_name: Optional[str] = "Apple"
+    last_name: Optional[str] = "User"
 
 class TokenResponse(BaseModel):
     token: str
@@ -105,6 +112,13 @@ def get_current_user(
     user = db.query(auth_models.User).filter(auth_models.User.email == email).first()
     if user is None:
         raise credentials_exception
+        
+    # Optional check: Block deactivated/deleted accounts from logging in or using tokens
+    if getattr(user, 'is_active', True) is False or getattr(user, 'is_deleted', False) is True:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account has been deactivated or deleted."
+        )
         
     return user
 
@@ -208,6 +222,12 @@ async def login(user: UserLogin, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Incorrect email or password"
         )
+        
+    if getattr(db_user, 'is_active', True) is False or getattr(db_user, 'is_deleted', False) is True:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account has been deactivated or deleted."
+        )
     
     access_token = create_access_token(data={"sub": db_user.email})
     return {
@@ -230,13 +250,11 @@ async def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db))
         first_name = "Google"
         last_name = "User"
 
-        # DEV BYPASS: Allow testing without real Google credentials
         if payload.token == "mock_google_token_for_development":
             email = "dev.googleuser@example.com"
             first_name = "Google"
             last_name = "Tester"
         else:
-            # 1. Try verifying as a standard Google ID Token (JWT)
             try:
                 idinfo = id_token.verify_oauth2_token(
                     payload.token, 
@@ -250,7 +268,6 @@ async def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db))
             except Exception:
                 pass
 
-            # 2. If ID Token verification fails, treat as an access token and fetch user info directly
             if not email:
                 async with httpx.AsyncClient() as client:
                     resp = await client.get(
@@ -272,7 +289,6 @@ async def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db))
         clean_email = email.lower().strip()
         db_user = db.query(auth_models.User).filter(auth_models.User.email == clean_email).first()
 
-        # If user does not exist, perform automatic sign-up
         if not db_user:
             db_user = auth_models.User(
                 first_name=first_name,
@@ -285,6 +301,12 @@ async def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db))
             db.add(db_user)
             db.commit()
             db.refresh(db_user)
+
+        if getattr(db_user, 'is_active', True) is False or getattr(db_user, 'is_deleted', False) is True:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This account has been deactivated or deleted."
+            )
 
         access_token = create_access_token(data={"sub": db_user.email})
         
@@ -307,6 +329,97 @@ async def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Google authentication failed: {str(e)}"
+        )
+
+@router.post("/apple", response_model=TokenResponse)
+async def apple_auth(payload: AppleAuthRequest, db: Session = Depends(get_db)):
+    try:
+        # 1. Fetch Apple's public keys dynamically
+        async with httpx.AsyncClient() as client:
+            keys_response = await client.get("https://appleid.apple.com/auth/keys")
+            if keys_response.status_code != 200:
+                raise HTTPException(status_code=500, detail="Failed to fetch Apple public keys.")
+            apple_keys = keys_response.json().get("keys", [])
+
+        # 2. Extract the unverified header to get the Key ID (kid)
+        try:
+            unverified_header = jwt.get_unverified_header(payload.token)
+        except JWTError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token format.")
+            
+        kid = unverified_header.get("kid")
+        if not kid:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Apple token missing 'kid' in header.")
+
+        # 3. Match the Key ID with Apple's published public keys
+        public_key = next((key for key in apple_keys if key["kid"] == kid), None)
+        if not public_key:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Apple public key not found for token verification.")
+
+        # 4. Cryptographically verify the payload against the Apple public key
+        try:
+            verified_payload = jwt.decode(
+                payload.token,
+                public_key,
+                algorithms=["RS256"],
+                audience=APPLE_CLIENT_ID,
+                issuer="https://appleid.apple.com"
+            )
+        except JWTError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Token validation failed: {str(e)}")
+
+        email = verified_payload.get("email")
+
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Could not extract email from Apple token."
+            )
+
+        clean_email = email.lower().strip()
+        db_user = db.query(auth_models.User).filter(auth_models.User.email == clean_email).first()
+
+        # If user does not exist, perform automatic sign-up
+        if not db_user:
+            db_user = auth_models.User(
+                first_name=payload.first_name or "Apple",
+                last_name=payload.last_name or "User",
+                email=clean_email,
+                phone="",
+                address="",
+                hashed_password=get_password_hash(os.urandom(24).hex())
+            )
+            db.add(db_user)
+            db.commit()
+            db.refresh(db_user)
+
+        if getattr(db_user, 'is_active', True) is False or getattr(db_user, 'is_deleted', False) is True:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This account has been deactivated or deleted."
+            )
+
+        access_token = create_access_token(data={"sub": db_user.email})
+        
+        return {
+            "token": access_token,
+            "user": {
+                "id": db_user.id,
+                "first_name": db_user.first_name,
+                "last_name": db_user.last_name,
+                "email": db_user.email,
+                "phone": getattr(db_user, 'phone', ''),
+                "address": getattr(db_user, 'address', ''),
+                "role": getattr(db_user, 'role', 'user')
+            }
+        }
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Apple authentication failed: {str(e)}"
         )
 
 @router.post("/forgot-password")
@@ -372,3 +485,29 @@ async def get_current_user_profile(current_user = Depends(get_current_user)):
         "address": getattr(current_user, 'address', ''),
         "role": getattr(current_user, 'role', 'user')
     }
+
+@router.delete("/account")
+async def delete_own_account(current_user = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Soft-deletes the currently authenticated user's account.
+    Marks the account as deleted/inactive so the user record and 
+    associated bookings remain visible to admins.
+    """
+    try:
+        # Check if the model supports soft deletion flags or modify attributes accordingly
+        if hasattr(current_user, 'is_deleted'):
+            current_user.is_deleted = True
+        if hasattr(current_user, 'is_active'):
+            current_user.is_active = False
+        
+        # Optionally append a tag or append '(Deleted)' to email/name for clarity if columns permit, 
+        # or simply rely on flags so foreign key constraints and bookings remain intact.
+        
+        db.commit()
+        return {"message": "Account successfully deleted and archived."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete account: {str(e)}"
+        )

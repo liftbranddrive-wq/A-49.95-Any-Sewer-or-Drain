@@ -2,6 +2,7 @@ import React, { useContext, useEffect } from 'react';
 import { Platform } from 'react-native';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 
@@ -19,7 +20,6 @@ import AdminServicesScreen from './src/screens/AdminServicesScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import TopBanner from './src/screens/TopBanner';
 
-// Global notification presentation handler (for foreground notifications)
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -29,15 +29,16 @@ Notifications.setNotificationHandler({
 });
 
 const Tab = createBottomTabNavigator();
+const RootStack = createNativeStackNavigator();
 export const navigationRef = createNavigationContainerRef();
 
-function MainNavigator() {
+// ----------------------------------------------------
+// BOTTOM TAB NAVIGATOR (Handles Guest, User, and Admin)
+// ----------------------------------------------------
+function MainTabs() {
   const { userToken, userRole, user } = useContext(AuthContext);
 
   useEffect(() => {
-    if (!userToken) return;
-
-    // 1. Create high-importance Android notification channel
     if (Platform.OS === 'android') {
       Notifications.setNotificationChannelAsync('default', {
         name: 'Default Channel',
@@ -47,17 +48,14 @@ function MainNavigator() {
       });
     }
 
-    // 2. Register device push token with FastAPI backend
-    registerForPushNotificationsAsync(userToken);
+    if (userToken) {
+      registerForPushNotificationsAsync(userToken);
+    }
 
-    // 3. Handle user tapping on a push notification with robust screen mapping
     const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data;
-
       if (navigationRef.isReady()) {
         let targetScreen = data?.screen || 'Notifications';
-        
-        // Map backend route aliases to registered bottom tab names
         if (targetScreen === 'My Bookings') targetScreen = 'MyBookingsScreen';
         if (targetScreen === 'AdminDashboard' || targetScreen === 'Admin') targetScreen = 'Admin';
         if (targetScreen === 'Call') targetScreen = 'Call';
@@ -66,111 +64,91 @@ function MainNavigator() {
         try {
           navigationRef.navigate(targetScreen, data?.params);
         } catch (err) {
-          console.log('--- Navigation routing fallback triggered ---', err);
-          // Fallback to Notifications tab if the route isn't available for the current role
           navigationRef.navigate('Notifications');
         }
       }
     });
 
-    return () => {
-      responseListener.remove();
-    };
+    return () => responseListener.remove();
   }, [userToken]);
 
-  if (!userToken) {
-    return <AuthScreen />;
-  }
-
-  // Resolve role and safely convert to lowercase for comparison
   const rawRole = userRole || user?.role || '';
   const isAdmin = String(rawRole).trim().toLowerCase() === 'admin';
 
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        header: () => (isAdmin ? null : <TopBanner />),
+      screenOptions={({ route, navigation }) => ({
+        // Pass navigation to TopBanner so it can trigger the Auth Screen
+        header: () => (isAdmin ? null : <TopBanner navigation={navigation} />),
         tabBarIcon: ({ color, size }) => {
           let iconName = 'home-outline';
           if (route.name === 'Home') iconName = 'home-outline';
           if (route.name === 'Call') iconName = 'call-outline';
           if (route.name === 'Services') iconName = 'calendar-outline';
-          if (route.name === 'MyBookingsScreen' || route.name === 'My Bookings') iconName = 'receipt-outline';
+          if (route.name === 'MyBookingsScreen') iconName = 'receipt-outline';
           if (route.name === 'Account') iconName = 'person-outline';
           if (route.name === 'Admin') iconName = 'people-outline';
           if (route.name === 'Admin Services') iconName = 'construct-outline';
           if (route.name === 'Notifications') iconName = 'notifications-outline';
-
           return <Ionicons name={iconName} size={size} color={color} />;
         },
       })}
     >
-      {isAdmin ? (
-        <>
-          <Tab.Screen name="Account" component={AccountScreen} />
-          <Tab.Screen
-            name="Admin"
-            component={AdminUsersScreen}
-            options={{ title: 'Users' }}
-          />
-          <Tab.Screen
-            name="Admin Services"
-            component={AdminServicesScreen}
-            options={{ title: 'Services' }}
-          />
-          {/* Admin Bottom Navigation Tab for Notifications */}
-          <Tab.Screen
-            name="Notifications"
-            component={NotificationsScreen}
-            options={{ title: 'Alerts' }}
-          />
-        </>
+      {/* --- CONDITIONAL TABS BASED ON AUTH/ROLE --- */}
+      {userToken ? (
+        isAdmin ? (
+          /* ================= ADMIN TABS ================= */
+          <>
+            <Tab.Screen name="Account" component={AccountScreen} />
+            <Tab.Screen name="Admin" component={AdminUsersScreen} options={{ title: 'Users' }} />
+            <Tab.Screen name="Admin Services" component={AdminServicesScreen} options={{ title: 'Services' }} />
+            <Tab.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Alerts' }} />
+          </>
+        ) : (
+          /* ================= NORMAL LOGGED-IN USER TABS ================= */
+          <>
+            <Tab.Screen name="Home" options={{ title: 'Home' }}>
+              {(props) => <HomeScreen {...props} onNavigate={(screenName) => props.navigation.navigate(screenName)} />}
+            </Tab.Screen>
+            <Tab.Screen name="Call" component={CallScreen} />
+            <Tab.Screen name="Services">
+              {(props) => <BookingScreen {...props} userToken={userToken} />}
+            </Tab.Screen>
+            <Tab.Screen name="MyBookingsScreen" component={MyBookingsScreen} options={{ title: 'My Bookings' }} />
+            <Tab.Screen name="Account" component={AccountScreen} />
+            <Tab.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Alerts' }} />
+          </>
+        )
       ) : (
+        /* ================= GUEST TABS (NO LOGIN) ================= */
         <>
-          <Tab.Screen
-            name="Home"
-            options={{ title: 'Home' }}
-          >
-            {(props) => (
-              <HomeScreen
-                {...props}
-                onNavigate={(screenName) => props.navigation.navigate(screenName)}
-              />
-            )}
+          <Tab.Screen name="Home" options={{ title: 'Home' }}>
+            {(props) => <HomeScreen {...props} onNavigate={(screenName) => props.navigation.navigate(screenName)} />}
           </Tab.Screen>
-
           <Tab.Screen name="Call" component={CallScreen} />
-          
           <Tab.Screen name="Services">
             {(props) => <BookingScreen {...props} userToken={userToken} />}
           </Tab.Screen>
-
-          <Tab.Screen
-            name="MyBookingsScreen"
-            options={{ title: 'My Bookings' }}
-          >
-            {(props) => <MyBookingsScreen {...props} userToken={userToken} />}
-          </Tab.Screen>
-          
-          <Tab.Screen name="Account" component={AccountScreen} />
-          
-          {/* Regular User Notifications Tab */}
-          <Tab.Screen
-            name="Notifications"
-            component={NotificationsScreen}
-            options={{ title: 'Alerts' }}
-          />
         </>
       )}
     </Tab.Navigator>
   );
 }
 
+// ----------------------------------------------------
+// ROOT STACK (Controls hiding bottom bar for Auth screens)
+// ----------------------------------------------------
 export default function App() {
   return (
     <AuthProvider>
       <NavigationContainer ref={navigationRef}>
-        <MainNavigator />
+        <RootStack.Navigator screenOptions={{ headerShown: false }}>
+          {/* The main app with bottom tabs */}
+          <RootStack.Screen name="MainTabs" component={MainTabs} />
+          
+          {/* Auth Screen is pushed ON TOP of tabs, hiding the bottom bar */}
+          <RootStack.Screen name="Auth" component={AuthScreen} />
+        </RootStack.Navigator>
       </NavigationContainer>
     </AuthProvider>
   );

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean
 from sqlalchemy.sql import func
 from database import Base
 
@@ -17,3 +17,4 @@ class User(Base):
     reset_token = Column(String(255), nullable=True)
     reset_token_expires = Column(DateTime, nullable=True)
     push_token = Column(String(255), nullable=True)
+    marketing_push_enabled = Column(Boolean, default=False, nullable=False) # <--- Added field

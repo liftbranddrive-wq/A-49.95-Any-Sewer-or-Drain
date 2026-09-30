@@ -93,7 +93,7 @@ async def create_service(
         db.refresh(new_service)
 
         # Construct notification content
-        notif_title = "🆕 New Service Available!"
+        notif_title = "New Service Available!"
         notif_message = f"We now offer {new_service.title}. Tap to check details and book!"
 
         # 1. Save to local DB with target_type="regular" so it matches the frontend notification screen query

@@ -6,6 +6,8 @@ import {
   Text,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
+  Switch,
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +20,8 @@ export default function AccountScreen() {
 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+  const [marketingEnabled, setMarketingEnabled] = useState(false);
 
   // Fetch full user profile details from the backend
   const fetchUserProfile = async () => {
@@ -32,13 +36,15 @@ export default function AccountScreen() {
       const data = await response.json();
       if (response.ok) {
         setProfile(data);
+        setMarketingEnabled(data?.marketing_push_enabled || false);
       } else {
-        // Fallback to local user object if backend profile fetch fails
         setProfile(user);
+        setMarketingEnabled(user?.marketing_push_enabled || false);
       }
     } catch (err) {
       console.error('Error fetching user profile:', err);
       setProfile(user);
+      setMarketingEnabled(user?.marketing_push_enabled || false);
     } finally {
       setLoading(false);
     }
@@ -47,6 +53,63 @@ export default function AccountScreen() {
   useEffect(() => {
     fetchUserProfile();
   }, []);
+
+  // Handle marketing preference toggle update
+  const handleToggleMarketing = async (value) => {
+    setMarketingEnabled(value);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/preferences`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ marketing_push_enabled: value }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update preference');
+    } catch (error) {
+      setMarketingEnabled(!value); // Revert state on failure
+      Alert.alert('Error', 'Could not update notification preferences.');
+    }
+  };
+
+  // Handle self-account deletion
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? Your account details and past bookings will be archived for administrative review and cannot be recovered.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              const response = await fetch(`${API_BASE_URL}/api/auth/account`, {
+                method: 'DELETE',
+                headers: {
+                  Authorization: `Bearer ${userToken}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+
+              const data = await response.json().catch(() => ({}));
+              if (!response.ok) throw new Error(data.detail || 'Failed to delete account');
+
+              Alert.alert('Account Deleted', 'Your account has been successfully removed.');
+              logout(); // Log out the user and return to auth stack
+            } catch (error) {
+              Alert.alert('Error', error.message);
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={globalStyles.container}>
@@ -92,6 +155,22 @@ export default function AccountScreen() {
                 </Text>
               </View>
             </View>
+
+            <View style={localStyles.divider} />
+
+            {/* Notification Preferences Toggle Row */}
+            <View style={localStyles.infoRow}>
+              <Ionicons name="notifications-outline" size={20} color="#0b57d0" style={localStyles.infoIcon} />
+              <View style={localStyles.switchTextContainer}>
+                <Text style={localStyles.infoLabel}>Promotional Offers & News</Text>
+                <Text style={localStyles.switchSubLabel}>Receive weekend promos and discounts.</Text>
+              </View>
+              <Switch
+                value={marketingEnabled}
+                onValueChange={handleToggleMarketing}
+                trackColor={{ false: '#767577', true: '#0b57d0' }}
+              />
+            </View>
           </View>
         )}
 
@@ -110,6 +189,31 @@ export default function AccountScreen() {
               style={{ marginRight: 8 }}
             />
             <Text style={localStyles.btn3dText}>Sign Out</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Delete Account Button */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={[localStyles.btn3dContainer, { marginTop: 14 }]}
+          onPress={handleDeleteAccount}
+          disabled={deleting}
+        >
+          <View style={[localStyles.btn3dBase, { backgroundColor: '#581c87' }]} />
+          <View style={[localStyles.btn3dTop, { backgroundColor: '#7e22ce' }]}>
+            {deleting ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <>
+                <Ionicons
+                  name="trash-bin-outline"
+                  size={20}
+                  color="#ffffff"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={localStyles.btn3dText}>Delete Account</Text>
+              </>
+            )}
           </View>
         </TouchableOpacity>
       </ScrollView>
@@ -171,8 +275,17 @@ const localStyles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 1,
   },
+  switchTextContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  switchSubLabel: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginTop: 1,
+  },
 
-  /* 3D Red Button Style */
+  /* 3D Button Style */
   btn3dContainer: {
     height: 52,
     position: 'relative',

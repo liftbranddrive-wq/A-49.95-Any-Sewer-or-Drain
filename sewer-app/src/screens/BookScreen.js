@@ -160,6 +160,14 @@ export default function BookingScreen({ userToken, navigation, servicesList = []
   };
 
   const handleSelectService = (service) => {
+    // --- NEW ADDITION: GUEST INTERCEPTION ---
+    if (!userToken) {
+      // If the user isn't logged in, redirect them to the Auth screen
+      navigation.navigate('Auth');
+      return; 
+    }
+    // ----------------------------------------
+
     setSelectedService(service);
     setStep('booking_flow');
     setBookingStep(1);

@@ -2,30 +2,19 @@ import os
 from typing import Optional, List
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import Column, Integer, String, DateTime, Text, func
 from sqlalchemy.orm import Session
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import httpx
 from datetime import datetime
 
-from database import get_db, Base
+from database import get_db, SessionLocal
 from models import auth_models
+# Import your Notification model from your shared models file, or define it here if it's local
+# from models.notification_model import Notification 
 from .admin_authorization import get_current_user
 
 router = APIRouter(prefix="/api/notifications", tags=["Notifications"])
 scheduler = AsyncIOScheduler()
-
-# ==================== DATABASE MODEL ====================
-class NotificationRecord(Base):
-    __tablename__ = "notification_records"
-
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String(255), nullable=False)
-    message = Column(Text, nullable=False)
-    target_type = Column(String(50), nullable=False) # 'admin' or 'regular'
-    notification_type = Column(String(50), nullable=False) # 'call_triggered', 'booking_created', 'new_service_added', 'weekly_promo'
-    service_id = Column(Integer, nullable=True) # Linked service ID for click navigation
-    created_at = Column(DateTime, default=datetime.utcnow)
 
 # ==================== PYDANTIC SCHEMAS ====================
 class TokenRequest(BaseModel):
@@ -58,7 +47,7 @@ def get_admin_tokens(db: Session) -> List[str]:
         .filter(
             auth_models.User.push_token.isnot(None),
             auth_models.User.push_token != "",
-            func.lower(func.coalesce(auth_models.User.role, "")) == "admin",
+            auth_models.func.lower(auth_models.func.coalesce(auth_models.User.role, "")) == "admin",
         )
         .all()
     ]
@@ -71,7 +60,7 @@ def get_regular_user_tokens(db: Session) -> List[str]:
         for u in db.query(auth_models.User)
         .filter(
             auth_models.User.push_token.isnot(None),
-            func.lower(auth_models.User.role) == "admin",
+            auth_models.func.lower(auth_models.User.role) == "admin",
         )
         .all()
     }
@@ -82,7 +71,7 @@ def get_regular_user_tokens(db: Session) -> List[str]:
         .filter(
             auth_models.User.push_token.isnot(None),
             auth_models.User.push_token != "",
-            func.lower(auth_models.User.role) != "admin",
+            auth_models.func.lower(auth_models.User.role) != "admin",
         )
         .all()
     ]
@@ -130,34 +119,50 @@ def get_notifications(
     current_user: auth_models.User = Depends(get_current_user),
 ):
     """
-    Returns role-filtered notification history safely supporting both trailing slash variations.
+    Returns notifications specifically belonging to the logged-in user.
     """
     if not current_user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
 
-    raw_role = getattr(current_user, "role", "") or ""
-    is_admin = str(raw_role).strip().lower() == "admin"
-
-    if is_admin:
-        records = db.query(NotificationRecord).filter(
-            NotificationRecord.target_type == "admin"
-        ).order_by(NotificationRecord.created_at.desc()).all()
-    else:
-        records = db.query(NotificationRecord).filter(
-            NotificationRecord.target_type == "regular"
-        ).order_by(NotificationRecord.created_at.desc()).all()
+    # Fetch notifications tied to the user's ID using your exact Notification model
+    records = db.query(Notification).filter(
+        Notification.user_id == current_user.id
+    ).order_by(Notification.created_at.desc()).all()
 
     return [
         {
             "id": r.id,
             "title": r.title,
-            "message": r.message,
-            "type": r.notification_type,
-            "service_id": r.service_id,
+            "message": r.body, # Map 'body' column to 'message' for the frontend
+            "read": r.is_read,  # Correctly mapped to your database is_read boolean
             "time": r.created_at.strftime("%b %d, %I:%M %p") if r.created_at else "Just now"
         }
         for r in records
     ]
+
+
+# ==================== MARK NOTIFICATION AS READ ====================
+
+@router.patch("/{notification_id}/read")
+def mark_notification_read(
+    notification_id: int,
+    db: Session = Depends(get_db),
+    current_user: auth_models.User = Depends(get_current_user),
+):
+    if not current_user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+
+    record = db.query(Notification).filter(
+        Notification.id == notification_id,
+        Notification.user_id == current_user.id
+    ).first()
+
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+
+    record.is_read = True
+    db.commit()
+    return {"status": "success", "message": "Notification marked as read"}
 
 
 # ==================== PUSH SENDER HELPER ====================
@@ -193,70 +198,94 @@ async def send_expo_push_notification(
             print(f"--- [PUSH SERVICE] Failed to send push: {e} ---")
 
 
+# ==================== HELPER TO SAVE & BROADCAST ====================
+
+def create_and_send_notification_to_users(db: Session, user_ids: List[int], title: str, body: str, extra_data: dict = None):
+    """Saves notification rows for specific user IDs in database"""
+    for uid in user_ids:
+        db_record = Notification(
+            user_id=uid,
+            title=title,
+            body=body,
+            is_read=False
+        )
+        db.add(db_record)
+    db.commit()
+
+
+# ==================== SCHEDULED WEEKEND PROMO CRON ====================
+
+async def send_weekend_promo_cron():
+    """Automated cron job running every weekend to dispatch $5 promo exclusively to opted-in regular users."""
+    db = SessionLocal()
+    try:
+        eligible_users = db.query(auth_models.User).filter(
+            auth_models.User.marketing_push_enabled == True,
+            auth_models.User.push_token.isnot(None),
+            auth_models.User.push_token != "",
+            auth_models.func.lower(auth_models.func.coalesce(auth_models.User.role, "")) != "admin"
+        ).all()
+
+        tokens = [u.push_token for u in eligible_users]
+        user_ids = [u.id for u in eligible_users]
+
+        if not tokens:
+            return
+
+        title = "$5 Weekend Promo!"
+        body = "Enjoy your exclusive $5 discount this weekend. Tap to claim your savings!"
+
+        create_and_send_notification_to_users(db, user_ids, title, body)
+
+        await send_expo_push_notification(
+            tokens=tokens,
+            title=title,
+            body=body,
+            extra_data={"screen": "Home", "notification_type": "weekend_promo"}
+        )
+    finally:
+        db.close()
+
+
+# ==================== SCHEDULER LIFECYCLE MANAGEMENT ====================
+
+def start_scheduler():
+    if not scheduler.running:
+        # Schedule the $5 promo to run every Saturday at 10:00 AM
+        scheduler.add_job(send_weekend_promo_cron, 'cron', day_of_week='sat', hour=10, minute=0)
+        scheduler.start()
+
+def stop_scheduler():
+    if scheduler.running:
+        scheduler.shutdown()
+
+
 # ==================== REGULAR USER NOTIFICATIONS & PROMOS ====================
 
 @router.post("/send-test")
 async def send_test_notification(
     payload: CustomPushRequest, db: Session = Depends(get_db)
 ):
-    target_tokens = get_regular_user_tokens(db)
+    target_users = db.query(auth_models.User).filter(
+        auth_models.User.push_token.isnot(None),
+        auth_models.User.push_token != "",
+        auth_models.func.lower(auth_models.func.coalesce(auth_models.User.role, "")) != "admin"
+    ).all()
 
-    db_record = NotificationRecord(
-        title=payload.title,
-        message=payload.body,
-        target_type="regular",
-        notification_type=payload.notification_type,
-        service_id=payload.service_id
-    )
-    db.add(db_record)
-    db.commit()
+    target_tokens = [u.push_token for u in target_users]
+    target_user_ids = [u.id for u in target_users]
+
+    # Save to database for each regular user
+    create_and_send_notification_to_users(db, target_user_ids, payload.title, payload.body)
 
     if target_tokens:
         await send_expo_push_notification(
             tokens=target_tokens,
             title=payload.title,
             body=payload.body,
-            extra_data={"screen": payload.screen, "target_role": "regular", "service_id": payload.service_id},
+            extra_data={"screen": payload.screen, "service_id": payload.service_id},
         )
     return {"message": "Notification sent and stored for regular users."}
-
-
-async def send_weekend_promotion():
-    from database import SessionLocal
-    db = SessionLocal()
-    try:
-        tokens = get_regular_user_tokens(db)
-        title = "💰 $5 Weekend Promo Offer!"
-        body = "Get $5 OFF on any plumbing or drain service when you book or call through the app today!"
-        
-        db_record = NotificationRecord(
-            title=title,
-            message=body,
-            target_type="regular",
-            notification_type="weekly_promo"
-        )
-        db.add(db_record)
-        db.commit()
-
-        if tokens:
-            await send_expo_push_notification(
-                tokens=tokens,
-                title=title,
-                body=body,
-                extra_data={"screen": "Services", "target_role": "regular"},
-            )
-    finally:
-        db.close()
-
-
-def start_scheduler():
-    scheduler.add_job(send_weekend_promotion, "cron", day_of_week="sat,sun", hour=9, minute=0)
-    scheduler.start()
-
-
-def stop_scheduler():
-    if scheduler.running:
-        scheduler.shutdown()
 
 
 # ==================== ADMIN NOTIFICATIONS ====================
@@ -268,7 +297,13 @@ async def notify_admin_on_call(
     db: Session = Depends(get_db),
     current_user: auth_models.User = Depends(get_current_user),
 ):
-    admin_tokens = get_admin_tokens(db)
+    admins = db.query(auth_models.User).filter(
+        auth_models.User.push_token.isnot(None),
+        auth_models.func.lower(auth_models.User.role) == "admin"
+    ).all()
+
+    admin_tokens = [a.push_token for a in admins]
+    admin_ids = [a.id for a in admins]
 
     caller_identity = "A customer"
     if current_user:
@@ -280,14 +315,8 @@ async def notify_admin_on_call(
     title = "📞 Incoming Call Triggered!"
     body = f"{caller_identity}{phone_info} just tapped to call from the app."
 
-    db_record = NotificationRecord(
-        title=title,
-        message=body,
-        target_type="admin",
-        notification_type="call_triggered"
-    )
-    db.add(db_record)
-    db.commit()
+    # Save notification for all admins
+    create_and_send_notification_to_users(db, admin_ids, title, body)
 
     if admin_tokens:
         background_tasks.add_task(
@@ -295,7 +324,7 @@ async def notify_admin_on_call(
             tokens=admin_tokens,
             title=title,
             body=body,
-            extra_data={"screen": "Admin", "target_role": "admin", "action": "call_initiated"},
+            extra_data={"screen": "Admin", "action": "call_initiated"},
         )
 
     return {"status": "success", "message": "Admin call notification logged and queued."}
@@ -308,7 +337,13 @@ async def notify_admin_on_booking(
     db: Session = Depends(get_db),
     current_user: auth_models.User = Depends(get_current_user),
 ):
-    admin_tokens = get_admin_tokens(db)
+    admins = db.query(auth_models.User).filter(
+        auth_models.User.push_token.isnot(None),
+        auth_models.func.lower(auth_models.User.role) == "admin"
+    ).all()
+
+    admin_tokens = [a.push_token for a in admins]
+    admin_ids = [a.id for a in admins]
     
     customer_name = "A customer"
     if current_user:
@@ -317,15 +352,8 @@ async def notify_admin_on_booking(
     title = "📅 New Service Booked!"
     body = f"{customer_name} booked '{payload.service_name}' for {payload.booking_date}."
 
-    db_record = NotificationRecord(
-        title=title,
-        message=body,
-        target_type="admin",
-        notification_type="booking_created",
-        service_id=payload.service_id
-    )
-    db.add(db_record)
-    db.commit()
+    # Save notification for all admins
+    create_and_send_notification_to_users(db, admin_ids, title, body)
 
     if admin_tokens:
         background_tasks.add_task(
@@ -333,7 +361,7 @@ async def notify_admin_on_booking(
             tokens=admin_tokens,
             title=title,
             body=body,
-            extra_data={"screen": "Admin", "target_role": "admin", "action": "booking_created", "service_id": payload.service_id},
+            extra_data={"screen": "Admin", "action": "booking_created", "service_id": payload.service_id},
         )
 
     return {"status": "success", "message": "Admin booking notification logged and queued."}

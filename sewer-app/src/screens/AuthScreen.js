@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { AuthContext } from '../context/authContext';
 import { API_BASE_URL } from '../config/constants';
 import { styles } from '../styles/globalStyles';
@@ -54,6 +55,78 @@ export default function AuthScreen() {
 
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  
+  // Apple Auth State
+  const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
+
+  useEffect(() => {
+    // Check if Apple Authentication is available on this device
+    if (Platform.OS === 'ios') {
+      AppleAuthentication.isAvailableAsync().then(setAppleAuthAvailable);
+    }
+  }, []);
+
+  // Native Apple Sign-In Handler
+  const handleAppleAuth = async () => {
+    try {
+      setAppleLoading(true);
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (credential.identityToken) {
+        await handleBackendAppleLogin(
+          credential.identityToken, 
+          credential.fullName?.givenName, 
+          credential.fullName?.familyName
+        );
+      } else {
+        throw new Error("Failed to retrieve identity token from Apple.");
+      }
+    } catch (error) {
+      if (error.code === 'ERR_REQUEST_CANCELED') {
+        // User canceled the sign-in flow
+      } else {
+        Alert.alert("Apple Sign-In Error", error.message || "An unexpected error occurred.");
+      }
+    } finally {
+      setAppleLoading(false);
+    }
+  };
+
+  const handleBackendAppleLogin = async (identityToken, givenName, familyName) => {
+    try {
+      const apiResponse = await fetch(`${API_BASE_URL}/api/auth/apple`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          token: identityToken,
+          first_name: givenName || '',
+          last_name: familyName || ''
+        }),
+      });
+
+      const data = await apiResponse.json();
+
+      if (!apiResponse.ok) {
+        throw new Error(data.detail || "Apple authentication failed.");
+      }
+
+      const token = data.access_token || data.token;
+      const userPayload = data.user || data.role || data;
+
+      login(token, userPayload);
+    } catch (error) {
+      Alert.alert(
+        "Apple Sign-In", 
+        error.message || "Could not complete Apple authentication with backend."
+      );
+    }
+  };
 
   // Native Google Sign-In Handler
   const handleGoogleAuth = async () => {
@@ -62,7 +135,6 @@ export default function AuthScreen() {
       await GoogleSignin.hasPlayServices();
       const userInfo = await GoogleSignin.signIn();
       
-      // Robust extraction supporting all module versions (v11+ uses data.idToken, older or alternative returns idToken directly)
       const googleToken = userInfo.data?.idToken || userInfo?.idToken || userInfo.user?.idToken;
 
       if (googleToken) {
@@ -301,10 +373,35 @@ export default function AuthScreen() {
             </View>
 
             <View style={styles.authForm}>
+              
+              {/* Apple Sign In / Sign Up Button */}
+              {appleAuthAvailable && (
+                <TouchableOpacity 
+                  style={[
+                    localStyles.socialButton, 
+                    localStyles.appleButton,
+                    appleLoading && { opacity: 0.6 }
+                  ]}
+                  onPress={handleAppleAuth}
+                  disabled={appleLoading}
+                >
+                  {appleLoading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-apple" size={20} color="#FFF" style={{ marginRight: 10, marginTop: -2 }} />
+                      <Text style={localStyles.appleButtonText}>
+                        {isLogin ? 'Sign In with Apple' : 'Sign Up with Apple'}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
               {/* Google Sign In / Sign Up Button */}
               <TouchableOpacity 
                 style={[
-                  localStyles.googleButton, 
+                  localStyles.socialButton, 
                   googleLoading && { opacity: 0.6 }
                 ]}
                 onPress={handleGoogleAuth}
@@ -615,7 +712,7 @@ const localStyles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 6,
   },
-  googleButton: {
+  socialButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -635,6 +732,15 @@ const localStyles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#333',
+  },
+  appleButton: {
+    backgroundColor: '#000',
+    borderColor: '#000',
+  },
+  appleButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
   dividerContainer: {
     flexDirection: 'row',

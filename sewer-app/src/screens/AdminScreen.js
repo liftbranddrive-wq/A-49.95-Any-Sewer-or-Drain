@@ -111,8 +111,16 @@ export default function AdminUsersScreen() {
         <Text style={cardStyles.userName}>
           {item.first_name} {item.last_name}
         </Text>
-        <View style={[cardStyles.roleBadge, item.role === 'admin' ? cardStyles.adminBadge : cardStyles.userBadge]}>
-          <Text style={cardStyles.roleText}>{item.role.toUpperCase()}</Text>
+        <View style={cardStyles.badgesContainer}>
+          {item.badge ? (
+            <View style={cardStyles.badgeContainer}>
+              <Ionicons name="ribbon-outline" size={12} color="#f57c00" style={{ marginRight: 2 }} />
+              <Text style={cardStyles.badgeText}>{item.badge}</Text>
+            </View>
+          ) : null}
+          <View style={[cardStyles.roleBadge, item.role === 'admin' ? cardStyles.adminBadge : cardStyles.userBadge]}>
+            <Text style={cardStyles.roleText}>{item.role.toUpperCase()}</Text>
+          </View>
         </View>
       </View>
 
@@ -209,7 +217,23 @@ const cardStyles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  userName: { fontSize: 18, fontWeight: 'bold', color: '#1a1a1a' },
+  userName: { fontSize: 18, fontWeight: 'bold', color: '#1a1a1a', flex: 1, marginRight: 8 },
+  badgesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  badgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff3e0',
+    borderColor: '#ffe0b2',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  badgeText: { color: '#e65100', fontSize: 10, fontWeight: 'bold' },
   roleBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
   adminBadge: { backgroundColor: '#d32f2f' },
   userBadge: { backgroundColor: '#0288d1' },
