@@ -22,10 +22,12 @@ import { API_BASE_URL } from '../config/constants';
 import { styles } from '../styles/globalStyles';
 
 // Configure Google Sign-In with your Web Client ID
-GoogleSignin.configure({
-  webClientId: '592240709905-imqn3h0j4dbreeh76ro0bfb9adnsvfgm.apps.googleusercontent.com',
-  offlineAccess: true,
-});
+if (Platform.OS !== 'web') {
+  GoogleSignin.configure({
+    webClientId: '592240709905-imqn3h0j4dbreeh76ro0bfb9adnsvfgm.apps.googleusercontent.com',
+    offlineAccess: true,
+  });
+}
 
 export default function AuthScreen() {
   const { login } = useContext(AuthContext);
@@ -130,6 +132,11 @@ export default function AuthScreen() {
 
   // Native Google Sign-In Handler
   const handleGoogleAuth = async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert("Notice", "Google Sign-In via native SDK is not available on web.");
+      return;
+    }
+
     try {
       setGoogleLoading(true);
       await GoogleSignin.hasPlayServices();
@@ -145,7 +152,7 @@ export default function AuthScreen() {
     } catch (error) {
       setGoogleLoading(false);
       if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        // User cancelled the sign-in modal, do nothing
+        // User cancelled the sign-in modal
       } else if (error.code === statusCodes.IN_PROGRESS) {
         // Sign-in operation is already running
       } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
@@ -466,7 +473,7 @@ export default function AuthScreen() {
               
               <View style={localStyles.inputWrapper}>
                 <TextInput 
-                  style={styles.input} 
+                  style={[styles.input, { paddingRight: 45 }]} 
                   placeholder="Password" 
                   value={password} 
                   onChangeText={setPassword} 
@@ -501,7 +508,7 @@ export default function AuthScreen() {
                 <>
                   <View style={localStyles.inputWrapper}>
                     <TextInput 
-                      style={styles.input} 
+                      style={[styles.input, { paddingRight: 45 }]} 
                       placeholder="Confirm Password" 
                       value={confirmPassword} 
                       onChangeText={setConfirmPassword} 
@@ -652,7 +659,7 @@ export default function AuthScreen() {
 
                 <View style={localStyles.inputWrapper}>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { paddingRight: 45 }]}
                     placeholder="New Password"
                     value={newPassword}
                     onChangeText={setNewPassword}
@@ -722,11 +729,16 @@ const localStyles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 12,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    ...Platform.select({
+      web: { boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.1)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+      },
+    }),
   },
   googleButtonText: {
     fontSize: 15,
@@ -809,10 +821,15 @@ const localStyles = StyleSheet.create({
     borderRadius: 12,
     padding: 20,
     elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.25)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+      },
+    }),
   },
   modalTitle: {
     fontSize: 20,
